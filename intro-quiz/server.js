@@ -1,38 +1,45 @@
 const WebSocket = require("ws");
 
-const PORT = process.env.PORT || 8080;
-const wss = new WebSocket.Server({ port: PORT });
+const wss = new WebSocket.Server({
+  port: process.env.PORT || 8080
+});
 
-let locked = false;
+let buzzerLocked = false;
+let buzzerWinner = null;
 
 wss.on("connection", (ws) => {
   ws.on("message", (msg) => {
     const data = JSON.parse(msg);
 
-    // 早押し（最初の1人のみ）
-    if (data.type === "buzz" && !locked) {
-      locked = true;
-      broadcast({
-        type: "stop",
-        winner: data.user
-      });
+    // 早押し
+    if (data.type === "buzz") {
+      if (!buzzerLocked) {
+        buzzerLocked = true;
+        buzzerWinner = data.name;
+
+        broadcast({
+          type: "buzz",
+          name: buzzerWinner
+        });
+      }
     }
 
-    // 司会者がスタート
-    if (data.type === "start") {
-      locked = false;
-      broadcast({ type: "start" });
+    // 司会者操作
+    if (data.type === "reset") {
+      buzzerLocked = false;
+      buzzerWinner = null;
+      broadcast({ type: "reset" });
     }
   });
 });
 
 function broadcast(obj) {
-  const message = JSON.stringify(obj);
-  wss.clients.forEach(client => {
+  const msg = JSON.stringify(obj);
+  wss.clients.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
+      client.send(msg);
     }
   });
 }
 
-console.log(`WebSocket server running on port ${PORT}`);
+console.log("WebSocket server running");
