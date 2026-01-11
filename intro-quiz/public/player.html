@@ -1,46 +1,38 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>早押し</title>
-</head>
+<html>
 <body>
-
-<h2>名前</h2>
-<input id="name" placeholder="名前を入力">
-
-<br><br>
-
-<button id="buzz">早押し！</button>
+<h1>早押し</h1>
+<input id="name" placeholder="名前">
+<button id="buzz">押す</button>
+<div id="status"></div>
 
 <script>
-const ws = new WebSocket("wss://intro-quiz.onrender.com");
-let locked = false;
+const sessionId =
+  new URLSearchParams(location.search).get("sessionId");
 
-document.getElementById("buzz").onclick = () => {
-  if (locked) return;
+const ws = new WebSocket(
+  (location.protocol === "https:" ? "wss://" : "ws://")
+  + location.host
+);
 
-  const name = document.getElementById("name").value.trim();
-  if (!name) {
-    alert("名前を入力してください");
-    return;
-  }
-
+buzz.onclick = () => {
   ws.send(JSON.stringify({
     type: "buzz",
-    name
+    sessionId,
+    user: name.value || "名無し"
   }));
-
-  locked = true;
 };
 
-ws.onmessage = (e) => {
-  const data = JSON.parse(e.data);
-  if (data.type === "reset") {
-    locked = false;
+ws.onmessage = e => {
+  const d = JSON.parse(e.data);
+  if (d.type === "buzzed") {
+    status.textContent =
+      `${d.winner} さんが先です`;
+  }
+  if (d.type === "resume") {
+    status.textContent = "次の問題";
   }
 };
 </script>
-
 </body>
 </html>
