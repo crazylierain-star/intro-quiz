@@ -1,45 +1,61 @@
+const http = require("http");
 const WebSocket = require("ws");
+const fs = require("fs");
+const path = require("path");
 
-const wss = new WebSocket.Server({
-  port: process.env.PORT || 8080
+const server = http.createServer((req, res) => {
+  const filePath =
+    req.url === "/"
+      ? "/host.html"
+      : req.url;
+
+  const fullPath = path.join(__dirname, "public", filePath);
+
+  fs.readFile(fullPath, (err, data) => {
+    if (err) {
+      res.writeHead(404);
+      res.end("Not found");
+      return;
+    }
+
+    res.writeHead(200);
+    res.end(data);
+  });
 });
 
-let buzzerLocked = false;
-let buzzerWinner = null;
+const wss = new WebSocket.Server({ server });
+
+let locked = false;
 
 wss.on("connection", (ws) => {
   ws.on("message", (msg) => {
     const data = JSON.parse(msg);
 
-    // 早押し
-    if (data.type === "buzz") {
-      if (!buzzerLocked) {
-        buzzerLocked = true;
-        buzzerWinner = data.name;
+    if (data.type === "buzz" && !locked) {
+      locked = true;
 
-        broadcast({
-          type: "buzz",
-          name: buzzerWinner
-        });
-      }
+      wss.clients.forEach((c) => {
+        if (c.readyState === WebSocket.OPEN) {
+          c.send(JSON.stringify({
+            type: "buzz",
+            name: data.name
+          }));
+        }
+      });
     }
 
-    // 司会者操作
     if (data.type === "reset") {
-      buzzerLocked = false;
-      buzzerWinner = null;
-      broadcast({ type: "reset" });
+      locked = false;
+      wss.clients.forEach((c) => {
+        if (c.readyState === WebSocket.OPEN) {
+          c.send(JSON.stringify({ type: "reset" }));
+        }
+      });
     }
   });
 });
 
-function broadcast(obj) {
-  const msg = JSON.stringify(obj);
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(msg);
-    }
-  });
-}
-
-console.log("WebSocket server running");
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+  console.log("HTTP + WebSocket server running on", PORT);
+});
