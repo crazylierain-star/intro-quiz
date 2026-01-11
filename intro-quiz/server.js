@@ -1,69 +1,50 @@
+const express = require("express");
 const http = require("http");
 const WebSocket = require("ws");
-const fs = require("fs");
-const path = require("path");
 
-const server = http.createServer((req, res) => {
-  const filePath =
-    req.url === "/"
-      ? "/host.html"
-      : req.url;
+const app = express();
+app.use(express.static("public"));
 
-  const fullPath = path.join(__dirname, "public", filePath);
-
-  fs.readFile(fullPath, (err, data) => {
-    if (err) {
-      res.writeHead(404);
-      res.end("Not found");
-      return;
-    }
-
-    res.writeHead(200);
-    res.end(data);
-  });
-});
-
+const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-let locked = false;
+const sessions = {};
 
-wss.on("connection", (ws) => {
-  console.log("🟢 WebSocket client connected");
-
-  ws.on("message", (msg) => {
-    console.log("📩 received:", msg.toString());
-
+wss.on("connection", ws => {
+  ws.on("message", msg => {
     const data = JSON.parse(msg);
 
-    if (data.type === "buzz" && !locked) {
-      locked = true;
+    const session =
+      sessions[data.sessionId] ??= {
+        locked: false,
+        clients: new Set()
+      };
 
-      wss.clients.forEach((c) => {
-        if (c.readyState === WebSocket.OPEN) {
-          c.send(JSON.stringify({
-            type: "buzz",
-            name: data.name
-          }));
-        }
-      });
+    session.clients.add(ws);
+
+    if (data.type === "buzz" && !session.locked) {
+      session.locked = true;
+
+      session.clients.forEach(c =>
+        c.send(JSON.stringify({
+          type: "buzzed",
+          winner: data.user
+        }))
+      );
     }
 
-    if (data.type === "reset") {
-      locked = false;
-      wss.clients.forEach((c) => {
-        if (c.readyState === WebSocket.OPEN) {
-          c.send(JSON.stringify({ type: "reset" }));
-        }
-      });
+    if (data.type === "resume") {
+      session.locked = false;
+
+      session.clients.forEach(c =>
+        c.send(JSON.stringify({ type: "resume" }))
+      );
     }
   });
 
   ws.on("close", () => {
-    console.log("🔴 WebSocket client disconnected");
+    Object.values(sessions).forEach(s => s.clients.delete(ws));
   });
 });
 
-const PORT = process.env.PORT || 8080;
-server.listen(PORT, () => {
-  console.log("HTTP + WebSocket server running on", PORT);
-});
+server.listen(process.env.PORT || 3000);
