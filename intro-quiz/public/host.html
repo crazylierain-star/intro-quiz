@@ -1,73 +1,43 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>イントロクイズ（司会者）</title>
+<meta charset="UTF-8">
+<title>司会者</title>
 </head>
 <body>
-  <h2>イントロクイズ（司会者）</h2>
 
-  <div id="player"></div>
+<h1>イントロクイズ（司会）</h1>
 
-  <button id="start">スタート</button>
-  <p id="status">待機中</p>
+<h2 id="status">待機中</h2>
 
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <script>
-    const WS_URL = "ws://localhost:8080"; // 本番は wss:// に変更
-    const VIDEO_IDS = [
-      "VIDEO_ID_1",
-      "VIDEO_ID_2",
-      "VIDEO_ID_3"
-    ];
+<button onclick="resume()">▶ 再生再開</button>
+<button onclick="next()">⏭ 次の曲</button>
 
-    let player;
-    let lastVideoId = null;
-    const ws = new WebSocket(WS_URL);
+<script>
+const ws = new WebSocket("wss://intro-quiz.onrender.com");
 
-    function getRandomVideoId() {
-      let id;
-      do {
-        id = VIDEO_IDS[Math.floor(Math.random() * VIDEO_IDS.length)];
-      } while (id === lastVideoId && VIDEO_IDS.length > 1);
-      lastVideoId = id;
-      return id;
-    }
+ws.onmessage = (e) => {
+  const data = JSON.parse(e.data);
 
-    function onYouTubeIframeAPIReady() {
-      player = new YT.Player("player", {
-        height: "360",
-        width: "640",
-        playerVars: {
-          controls: 0,
-          disablekb: 1,
-          modestbranding: 1
-        }
-      });
-    }
+  if (data.type === "buzz") {
+    document.getElementById("status").textContent =
+      `押した人：${data.name}`;
+  }
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+  if (data.type === "reset") {
+    document.getElementById("status").textContent = "待機中";
+  }
+};
 
-      if (data.type === "start") {
-        const videoId = getRandomVideoId();
-        player.loadVideoById({
-          videoId,
-          startSeconds: 0
-        });
-        document.getElementById("status").textContent = "再生中…";
-      }
+function resume() {
+  // Chrome拡張が Media 再生キーを拾う
+  navigator.mediaSession?.play?.();
+}
 
-      if (data.type === "stop") {
-        player.pauseVideo();
-        document.getElementById("status").textContent =
-          `早押し勝者：${data.winner}`;
-      }
-    };
+function next() {
+  ws.send(JSON.stringify({ type: "reset" }));
+}
+</script>
 
-    document.getElementById("start").onclick = () => {
-      ws.send(JSON.stringify({ type: "start" }));
-    };
-  </script>
 </body>
 </html>
