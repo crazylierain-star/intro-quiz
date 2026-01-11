@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>イントロクイズ（参加者）</title>
+</head>
+<body>
+  <h2>早押し</h2>
+
+  <button id="buzz" style="font-size:30px;">早押し！</button>
+  <p id="result"></p>
+
+  <script>
+    const WS_URL = "ws://localhost:8080"; // 本番は wss:// に変更
+    const name = prompt("名前を入力してください");
+
+    const ws = new WebSocket(WS_URL);
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.type === "stop") {
+        document.getElementById("result").textContent =
+          `早押し勝者：${data.winner}`;
+      }
+    };
+
+    document.getElementById("buzz").onclick = () => {
+      ws.send(JSON.stringify({
+        type: "buzz",
+        user: name
+      }));
+    };
+  </script>
+</body>
+</html>
