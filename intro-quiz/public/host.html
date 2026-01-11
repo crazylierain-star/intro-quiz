@@ -1,43 +1,32 @@
 <!DOCTYPE html>
-<html lang="ja">
-<head>
-<meta charset="UTF-8">
-<title>司会者</title>
-</head>
+<html>
 <body>
-
-<h1>イントロクイズ（司会）</h1>
-
-<h2 id="status">待機中</h2>
-
-<button onclick="resume()">▶ 再生再開</button>
-<button onclick="next()">⏭ 次の曲</button>
+<h1>司会者</h1>
+<div id="result"></div>
+<button id="resume">再開</button>
 
 <script>
-const ws = new WebSocket("wss://intro-quiz.onrender.com");
+const sessionId =
+  new URLSearchParams(location.search).get("sessionId");
 
-ws.onmessage = (e) => {
-  const data = JSON.parse(e.data);
+const ws = new WebSocket(
+  (location.protocol === "https:" ? "wss://" : "ws://")
+  + location.host
+);
 
-  if (data.type === "buzz") {
-    document.getElementById("status").textContent =
-      `押した人：${data.name}`;
-  }
-
-  if (data.type === "reset") {
-    document.getElementById("status").textContent = "待機中";
+ws.onmessage = e => {
+  const d = JSON.parse(e.data);
+  if (d.type === "buzzed") {
+    result.textContent = `${d.winner} さんが押しました`;
   }
 };
 
-function resume() {
-  // Chrome拡張が Media 再生キーを拾う
-  navigator.mediaSession?.play?.();
-}
-
-function next() {
-  ws.send(JSON.stringify({ type: "reset" }));
-}
+resume.onclick = () => {
+  ws.send(JSON.stringify({
+    type: "resume",
+    sessionId
+  }));
+};
 </script>
-
 </body>
 </html>
