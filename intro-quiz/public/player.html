@@ -1,35 +1,46 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>イントロクイズ（参加者）</title>
+<meta charset="UTF-8">
+<title>早押し</title>
 </head>
 <body>
-  <h2>早押し</h2>
 
-  <button id="buzz" style="font-size:30px;">早押し！</button>
-  <p id="result"></p>
+<h2>名前</h2>
+<input id="name" placeholder="名前を入力">
 
-  <script>
-    const WS_URL = "ws://localhost:8080"; // 本番は wss:// に変更
-    const name = prompt("名前を入力してください");
+<br><br>
 
-    const ws = new WebSocket(WS_URL);
+<button id="buzz">早押し！</button>
 
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.type === "stop") {
-        document.getElementById("result").textContent =
-          `早押し勝者：${data.winner}`;
-      }
-    };
+<script>
+const ws = new WebSocket("wss://intro-quiz.onrender.com");
+let locked = false;
 
-    document.getElementById("buzz").onclick = () => {
-      ws.send(JSON.stringify({
-        type: "buzz",
-        user: name
-      }));
-    };
-  </script>
+document.getElementById("buzz").onclick = () => {
+  if (locked) return;
+
+  const name = document.getElementById("name").value.trim();
+  if (!name) {
+    alert("名前を入力してください");
+    return;
+  }
+
+  ws.send(JSON.stringify({
+    type: "buzz",
+    name
+  }));
+
+  locked = true;
+};
+
+ws.onmessage = (e) => {
+  const data = JSON.parse(e.data);
+  if (data.type === "reset") {
+    locked = false;
+  }
+};
+</script>
+
 </body>
 </html>
